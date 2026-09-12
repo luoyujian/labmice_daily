@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from sqlalchemy import create_engine, inspect
@@ -61,9 +62,25 @@ class AuthDatabaseTests(unittest.TestCase):
         self.assertIn('system_settings', inspect(self.auth_engine).get_table_names())
         self.assertNotIn('users', inspect(self.business_engine).get_table_names())
 
-        with Session(self.auth_engine) as db:
+        with Session(self.auth_engine) as db, patch.dict('os.environ', {'ADMIN_PASSWORD': 'initial-test-password'}):
             init_default_admin(db)
             self.assertEqual([user.username for user in db.query(User).all()], ['admin'])
+
+    def test_existing_admin_does_not_require_bootstrap_password(self):
+        User.__table__.create(self.auth_engine)
+        with Session(self.auth_engine) as db:
+            db.add(User(username='owner', hashed_password='stored-hash', role='admin', is_active=True))
+            db.commit()
+            with patch.dict('os.environ', {}, clear=True):
+                init_default_admin(db)
+            self.assertEqual([user.username for user in db.query(User).all()], ['owner'])
+
+    def test_initial_admin_requires_configured_password(self):
+        User.__table__.create(self.auth_engine)
+        for environment in ({}, {'ADMIN_PASSWORD': '   '}, {'ADMIN_PASSWORD': 'admin123'}):
+            with self.subTest(environment=environment), Session(self.auth_engine) as db, patch.dict('os.environ', environment, clear=True):
+                with self.assertRaisesRegex(RuntimeError, 'ADMIN_PASSWORD'):
+                    init_default_admin(db)
 
 
 if __name__ == '__main__':

@@ -11,12 +11,18 @@ from backend.app.auth_database import get_auth_db
 from backend.app.models.models import User
 
 # JWT Configuration
-SECRET_KEY = os.getenv("SECRET_KEY", "mouse-secret-key-2026")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_DAYS = 30
+INSECURE_SECRET_KEYS = {"mouse-secret-key-2026", "changeme", "secret"}
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
+
+def get_secret_key() -> str:
+    secret_key = os.getenv("SECRET_KEY", "").strip()
+    if len(secret_key) < 32 or secret_key.lower() in INSECURE_SECRET_KEYS:
+        raise RuntimeError("SECRET_KEY must be set to a strong, unique value of at least 32 characters")
+    return secret_key
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
@@ -28,7 +34,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     to_encode = data.copy()
     expire = datetime.utcnow() + (expires_delta or timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS))
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, get_secret_key(), algorithm=ALGORITHM)
     return encoded_jwt
 
 def get_current_user(token: Optional[str] = Depends(oauth2_scheme), db: Session = Depends(get_auth_db)) -> Optional[User]:
@@ -36,7 +42,7 @@ def get_current_user(token: Optional[str] = Depends(oauth2_scheme), db: Session 
     if not token:
         return None
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, get_secret_key(), algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
             return None
@@ -67,11 +73,14 @@ def require_admin(user: User = Depends(require_auth)) -> User:
 
 def init_default_admin(db: Session):
     """Seed the initial administrator if it does not exist."""
-    existing_admin = db.query(User).filter(User.username == "admin").first()
+    existing_admin = db.query(User).filter(User.role == "admin").first()
     if not existing_admin:
+        initial_password = os.getenv("ADMIN_PASSWORD", "").strip()
+        if not initial_password or initial_password == "admin123":
+            raise RuntimeError("ADMIN_PASSWORD must be set to a non-default value when creating the initial administrator")
         default_admin = User(
             username="admin",
-            hashed_password=get_password_hash(os.getenv("ADMIN_PASSWORD", "admin123")),
+            hashed_password=get_password_hash(initial_password),
             role="admin",
             display_name="系统管理员",
             is_active=True
