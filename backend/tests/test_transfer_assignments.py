@@ -125,6 +125,71 @@ class TransferAssignmentTests(unittest.TestCase):
         self.assertEqual(self.db.query(TransferLog).count(), logs_before)
         self.assertEqual(self.db.query(TransferRequestAssignment).count(), 2)
 
+    def test_feedback_only_edit_does_not_reapply_assigned_mouse_state(self):
+        self.approve("M0")
+        assignment = self.db.query(TransferRequestAssignment).one()
+        assigned_state = dict(assignment.assigned_state)
+        logs_before = self.db.query(TransferLog).count()
+        self.mice[0].status = "死亡"
+        self.mice[0].cage_id = self.original_cages["M0"]
+        self.db.commit()
+
+        self.save(
+            status="已完成",
+            mouse_codes="M0",
+            demander="领取人甲",
+            feedback="仅改反馈",
+        )
+
+        self.assertEqual((self.mice[0].status, self.mice[0].cage_id), ("死亡", self.original_cages["M0"]))
+        self.assertEqual(assignment.assigned_state, assigned_state)
+        self.assertEqual(self.db.query(TransferLog).count(), logs_before)
+
+    def test_staged_feedback_preserves_death_and_later_conflict_detection(self):
+        self.stage("M0")
+        assignment = self.db.query(TransferRequestAssignment).one()
+        snapshot = dict(assignment.assigned_state)
+        self.mice[0].status = "死亡"
+        self.mice[0].cage_id = None
+        self.db.commit()
+
+        self.save(feedback="仅改反馈")
+
+        self.assertEqual((self.mice[0].status, self.mice[0].cage_id), ("死亡", None))
+        self.assertEqual(assignment.assigned_state, snapshot)
+        for updates in ({"status": "已完成"}, {"demander": "领取人乙"}, {"status": "取消"}):
+            with self.subTest(updates=updates), self.assertRaises(HTTPException) as error:
+                self.save(**updates)
+            self.assertEqual(error.exception.status_code, 409)
+
+    def test_adding_mouse_does_not_reapply_retained_mouse_state(self):
+        self.approve("M0")
+        retained = self.db.query(TransferRequestAssignment).filter_by(mouse_id=self.mice[0].id).one()
+        retained_state = dict(retained.assigned_state)
+        self.mice[0].status = "死亡"
+        self.mice[0].cage_id = self.original_cages["M0"]
+        self.db.commit()
+
+        self.save(mouse_codes="M0, M1")
+
+        self.assertEqual((self.mice[0].status, self.mice[0].cage_id), ("死亡", self.original_cages["M0"]))
+        self.assertEqual(retained.assigned_state, retained_state)
+        self.assertEqual((self.mice[1].status, self.mice[1].cage_id), ("出笼", None))
+
+    def test_removing_other_mouse_does_not_reapply_retained_mouse_state(self):
+        self.approve("M0, M1")
+        retained = self.db.query(TransferRequestAssignment).filter_by(mouse_id=self.mice[0].id).one()
+        retained_state = dict(retained.assigned_state)
+        self.mice[0].status = "死亡"
+        self.mice[0].cage_id = self.original_cages["M0"]
+        self.db.commit()
+
+        self.save(mouse_codes="M0")
+
+        self.assertEqual((self.mice[0].status, self.mice[0].cage_id), ("死亡", self.original_cages["M0"]))
+        self.assertEqual(retained.assigned_state, retained_state)
+        self.assertEqual(self.mice[1].cage_id, self.original_cages["M1"])
+
     def test_cancel_and_reapprove_and_delete(self):
         self.approve()
         self.save(status="取消")
