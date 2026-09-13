@@ -80,12 +80,12 @@
           <el-date-picker v-model="form.due_at" type="datetime" value-format="YYYY-MM-DDTHH:mm" format="YYYY-MM-DD HH:mm" placeholder="不设置则进入收集箱" style="width: 100%" />
         </el-form-item>
         <el-form-item label="关联笼位">
-          <el-select v-model="form.cage_ids" :loading="relationsLoading" :disabled="relationsLoading" multiple clearable filterable :reserve-keyword="false" placeholder="可选，可关联多个笼位" style="width: 100%">
+          <el-select ref="cageSelector" @change="closeMobilePicker(cageSelector)" v-model="form.cage_ids" :loading="relationsLoading" :disabled="relationsLoading" multiple clearable filterable :reserve-keyword="false" placeholder="可选，可关联多个笼位" style="width: 100%">
             <el-option v-for="cage in cages" :key="cage.id" :label="`${cage.room} · ${cage.cage_code}（${cage.mouse_count || 0}只）`" :value="cage.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="关联小鼠">
-          <el-select v-model="form.mouse_ids" :loading="relationsLoading" :disabled="relationsLoading" multiple clearable filterable :reserve-keyword="false" placeholder="可选，可关联多只小鼠" style="width: 100%">
+          <el-select ref="mouseSelector" @change="closeMobilePicker(mouseSelector)" v-model="form.mouse_ids" :loading="relationsLoading" :disabled="relationsLoading" multiple clearable filterable :reserve-keyword="false" placeholder="可选，可关联多只小鼠" style="width: 100%">
             <el-option v-for="mouse in mice" :key="mouse.id" :label="`${mouse.mouse_code} · ${mouse.strain || '未指定品系'}`" :value="mouse.id" />
           </el-select>
         </el-form-item>
@@ -115,7 +115,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { cagesApi, miceApi, todosApi } from '@/api'
 import { useAuthStore } from '@/stores/auth'
@@ -133,6 +133,13 @@ const cages = ref([])
 const mice = ref([])
 const loading = ref(false)
 const relationsLoading = ref(false)
+const mouseSelector = ref(null)
+const cageSelector = ref(null)
+async function closeMobilePicker(selector) {
+  if (!window.matchMedia('(max-width: 767px)').matches) return
+  await nextTick()
+  selector?.blur()
+}
 const saving = ref(false)
 const updatingId = ref(null)
 const showDialog = ref(false)
