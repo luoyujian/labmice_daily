@@ -163,11 +163,11 @@ def remove_inferred_parent_placeholders(db: Session) -> int:
             removed_count += 1
     return removed_count
 
-def cleanup_synthetic_room_imports(db: Session) -> Dict[str, int]:
+def cleanup_synthetic_room_imports(db: Session, *, rooms: list[str]) -> Dict[str, int]:
     """Remove current-colony records created from historical sheets with invented room names."""
-    synthetic_cages = db.query(Cage).filter(Cage.room.in_(SYNTHETIC_IMPORT_ROOMS)).all()
+    synthetic_cages = db.query(Cage).filter(Cage.room.in_(rooms)).all()
     synthetic_cage_ids = [cage.id for cage in synthetic_cages]
-    filters = [Mouse.source_room.in_(SYNTHETIC_IMPORT_ROOMS)]
+    filters = [Mouse.source_room.in_(rooms)]
     if synthetic_cage_ids:
         filters.append(Mouse.cage_id.in_(synthetic_cage_ids))
 
@@ -188,7 +188,7 @@ def cleanup_synthetic_room_imports(db: Session) -> Dict[str, int]:
             mouse.claim_purpose,
         ])
         is_historical_import_only = (
-            mouse.source_room in SYNTHETIC_IMPORT_ROOMS
+            mouse.source_room in rooms
             and not has_genotype_record
             and not has_assignment
             and mouse.status in [None, "", "在笼", "繁育中"]
@@ -200,7 +200,7 @@ def cleanup_synthetic_room_imports(db: Session) -> Dict[str, int]:
             continue
 
         mouse.cage_id = None
-        if mouse.source_room in SYNTHETIC_IMPORT_ROOMS:
+        if mouse.source_room in rooms:
             mouse.source_room = None
         if not has_assignment and mouse.status in [None, "", "在笼", "繁育中"]:
             mouse.status = "出笼"
@@ -966,9 +966,6 @@ def import_single_excel_file(db: Session, file_path: str, original_filename: str
         results["errors"].append(f"{label} 加载失败: {str(e)}")
 
     results["inferred_genders_count"] += apply_inferred_parent_genders(db, inferred_genders)
-    remove_inferred_parent_placeholders(db)
-    cleanup_synthetic_room_imports(db)
-    cleanup_invalid_genotype_mice(db)
     results["out_of_cage_updated"] = normalize_cage_statuses(db)
 
     db.commit()
@@ -1011,9 +1008,6 @@ def import_local_excel_folder(db: Session, folder_path: str) -> Dict[str, Any]:
             results["errors"].append(f"{primer_name}解析失败: {str(e)}")
 
     results["inferred_genders_count"] += apply_inferred_parent_genders(db, inferred_genders)
-    remove_inferred_parent_placeholders(db)
-    cleanup_synthetic_room_imports(db)
-    cleanup_invalid_genotype_mice(db)
     results["out_of_cage_updated"] = normalize_cage_statuses(db)
 
     db.commit()

@@ -1,0 +1,42 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.10.9'
+          python-version: '3.13'
+      - name: Install locked dependencies
+        run: uv sync --project backend --frozen --no-dev --no-install-project
+      - name: Run backend regression tests
+        env:
+          ADMIN_PASSWORD: 'CI-only-initial-password-2026'
+        run: |
+          export SECRET_KEY="$(backend/.venv/bin/python -c 'import secrets; print(secrets.token_urlsafe(48))')"
+          export DATA_DIR="$(mktemp -d)"
+          backend/.venv/bin/python -m unittest discover -s backend/tests -v
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build locked frontend
+        working-directory: frontend
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.32.1 --activate
+          pnpm install --frozen-lockfile
+          pnpm build
