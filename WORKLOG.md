@@ -26,3 +26,16 @@
 - Next: selector pagination (including TodoReminders and TransferRequests), phone
   layout and common workflows, PWA over NAS HTTPS. Coordinate genotype_3 work with
   Claude; ear-tag/transfer identity changes need a dedicated tested migration.
+
+## 2026-09-13: Mobile workflow adaptation
+
+- Reflow cage, transfer and todo forms on phones, enlarge touch controls, use a
+  single cage-card column, and wrap room selectors and long todo links.
+- Fetch all pages for transfer candidates and todo relations. Reject partial
+  failures; protect candidate lists from stale responses after changing rooms.
+- Added three pagination tests, including the 501st mouse and later-page failure.
+- Added disposable 501-mouse browser fixtures and phone (360/390px) / desktop
+  workflow checks to CI. Local agent-browser daemon cannot bind its socket and
+  Chromium download times out; browser verification is delegated to CI execution.
+- Local production build and three pagination tests pass. CI results pending.
+- No NAS deployment or real-device Safari verification yet.

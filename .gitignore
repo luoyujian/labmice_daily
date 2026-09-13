@@ -49,3 +49,7 @@ Thumbs.db
 *.njsproj
 *.sln
 .pnpm-store/
+
+# Browser verification artifacts
+frontend/test-results/
+frontend/playwright-report/

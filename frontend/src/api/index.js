@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { collectPages } from '../utils/pagination'
 import { ElMessage } from 'element-plus'
 
 const api = axios.create({
@@ -51,6 +52,7 @@ export const settingsApi = {
 }
 
 export const miceApi = {
+  listAllMice: (params) => collectPages((pageParams) => api.get('/mice', { params: pageParams }), params),
   listMice: (params) => api.get('/mice', { params }),
   getMouse: (id) => api.get(`/mice/${id}`),
   getMouseByCode: (code) => api.get(`/mice/by-code/${encodeURIComponent(code)}`),

@@ -218,3 +218,25 @@ body {
 @media (max-width: 380px) {
   .dashboard-page .grid-cols-4 { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Touch-friendly workflows; desktop form alignment remains unchanged. */
+@media (max-width: 767px) {
+  .workflow-dialog { margin-top: 4dvh; margin-bottom: 4dvh; }
+  .workflow-dialog .el-form-item { display: block; }
+  .workflow-dialog .el-form-item__label { display: block; width: auto !important; height: auto; line-height: 24px; text-align: left; padding-bottom: 4px; }
+  .workflow-dialog .el-form-item__content { margin-left: 0 !important; min-width: 0; }
+  .workflow-dialog .el-input__inner, .workflow-dialog .el-textarea__inner { font-size: 16px; }
+  .workflow-dialog .el-input__wrapper, .workflow-dialog .el-select__wrapper { min-height: 44px; }
+  .workflow-dialog .el-dialog__footer { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+  .workflow-dialog .el-dialog__footer .el-button { min-height: 44px; margin-left: 0; }
+  .workflow-dialog .el-radio-group { gap: 4px; }
+  .workflow-dialog .el-radio { min-height: 44px; margin-right: 12px; }
+  .workflow-dialog .el-table .el-table-fixed-column--left,
+  .workflow-dialog .el-table .el-table-fixed-column--right { position: static !important; }
+  .cages-page .el-radio-group { max-width: 100%; flex-wrap: wrap; gap: 6px; }
+  .cages-page .el-radio-button__inner { border: 1px solid var(--el-border-color); border-radius: 6px; min-height: 40px; display: inline-flex; align-items: center; white-space: normal; }
+  .cages-page .cage-grid { grid-template-columns: minmax(0, 1fr); }
+  .todo-content { overflow-wrap: anywhere; }
+  .todo-meta .el-button { max-width: 100%; height: auto; min-height: 36px; white-space: normal; text-align: left; margin-left: 0; }
+  .todo-meta .el-button > span { overflow-wrap: anywhere; }
+}

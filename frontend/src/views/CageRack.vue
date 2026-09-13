@@ -212,7 +212,7 @@
     />
 
     <!-- Add/Edit Cage Dialog -->
-    <el-dialog v-model="showCageDialog" :title="isEdit ? '编辑笼位' : '新建笼位'" width="min(720px, 94vw)" :close-on-click-modal="!cageMouseBusy" :close-on-press-escape="!cageMouseBusy" :show-close="!cageMouseBusy">
+    <el-dialog class="workflow-dialog" v-model="showCageDialog" :title="isEdit ? '编辑笼位' : '新建笼位'" width="min(720px, 94vw)" :close-on-click-modal="!cageMouseBusy" :close-on-press-escape="!cageMouseBusy" :show-close="!cageMouseBusy">
       <el-form :model="cageForm" label-width="80px">
         <el-form-item label="鼠房" required>
           <el-select v-model="cageForm.room" filterable allow-create placeholder="选择或输入鼠房" style="width: 100%">
@@ -327,7 +327,7 @@
             </template>
           </el-table-column>
         </el-table>
-        <el-dialog v-model="showAddCageMouse" :title="cageMouseForm.dob ? `新增鼠 · ${cageMouseForm.dob} 出生批次` : '新增鼠'" width="min(520px, 94vw)" append-to-body :close-on-click-modal="false" :close-on-press-escape="!cageMouseBusy" :show-close="!cageMouseBusy">
+        <el-dialog class="workflow-dialog" v-model="showAddCageMouse" :title="cageMouseForm.dob ? `新增鼠 · ${cageMouseForm.dob} 出生批次` : '新增鼠'" width="min(520px, 94vw)" append-to-body :close-on-click-modal="false" :close-on-press-escape="!cageMouseBusy" :show-close="!cageMouseBusy">
           <div class="text-sm text-gray-500 mb-4">添加到：{{ editingCageRoom }} · {{ editingCageCode }}</div>
         <el-form :model="cageMouseForm" label-width="90px" :disabled="cageMouseBusy">
           <el-form-item label="新增数量" required>

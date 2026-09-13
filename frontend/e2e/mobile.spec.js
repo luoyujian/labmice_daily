@@ -1,0 +1,55 @@
+import { test, expect } from '@playwright/test'
+
+test('login, navigation, cage dialog and late-page mouse in saved todo', async ({ page }, testInfo) => {
+  const errors = []
+  page.on('pageerror', error => errors.push(error.message))
+  await page.goto('/')
+  await page.getByPlaceholder('请输入用户名 / 账号').fill('admin')
+  await page.getByPlaceholder('请输入密码', { exact: true }).fill('Browser-Fixture-Pw-2026')
+  await page.getByRole('button', { name: '登 录' }).click()
+  await expect(page.getByRole('button', { name: '退出登录' })).toBeVisible()
+  const mobile = testInfo.project.name.startsWith('phone')
+  async function navigate(name) {
+    if (mobile) await page.getByRole('button', { name: '打开导航菜单' }).click()
+    await page.getByRole('link', { name, exact: true }).click()
+    if (mobile) await expect(page.getByRole('dialog', { name: '导航菜单' })).toBeHidden()
+  }
+  async function contained(locator) {
+    const box = await locator.boundingBox()
+    expect(box).not.toBeNull()
+    expect(box.x).toBeGreaterThanOrEqual(-1)
+    expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize().width + 1)
+  }
+  await navigate('笼位管理')
+  await expect(page.getByText('Test-A1', { exact: true }).first()).toBeVisible()
+  await contained(page.locator('.cages-page'))
+  await page.getByRole('button', { name: '新建笼位', exact: true }).click()
+  await contained(page.getByRole('dialog'))
+  await page.screenshot({ path: testInfo.outputPath('cage-dialog.png') })
+  await page.getByRole('dialog').locator('.el-dialog__headerbtn').click()
+  await navigate('待办提醒')
+  await page.getByRole('button', { name: '添加待办' }).click()
+  const dialog = page.getByRole('dialog', { name: '添加待办' })
+  await contained(dialog)
+  await dialog.getByPlaceholder('输入需要处理的事项').fill(`浏览器适配验证-${testInfo.project.name}`)
+  const lateMouse = await page.evaluate(async () => {
+    const response = await fetch('/api/mice?page=2&page_size=500', { headers: { Authorization: `Bearer ${localStorage.getItem('mouse_lab_token')}` } })
+    return (await response.json()).items[0].mouse_code
+  })
+  const selector = dialog.getByRole('combobox').last()
+  await expect(selector).toBeEnabled()
+  await selector.fill(lateMouse)
+  await page.getByRole('option').filter({ hasText: lateMouse }).click()
+  await dialog.getByText('备注', { exact: true }).click()
+  await page.screenshot({ path: testInfo.outputPath('todo-dialog.png') })
+  await dialog.getByRole('button', { name: '保存', exact: true }).click()
+  await expect(dialog).toBeHidden()
+  await page.getByRole('tab', { name: /收集箱/ }).click()
+  await expect(page.getByText(`浏览器适配验证-${testInfo.project.name}`, { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: `小鼠：${lateMouse}`, exact: true }).first()).toBeVisible()
+  await navigate('转鼠需求及反馈')
+  await page.getByRole('button', { name: /提交.*需求|申请领鼠/ }).click()
+  await contained(page.getByRole('dialog'))
+  await page.screenshot({ path: testInfo.outputPath('transfer-dialog.png') })
+  expect(errors).toEqual([])
+})
