@@ -8,14 +8,10 @@ from fastapi.responses import FileResponse
 from backend.app.database import SessionLocal, BASE_DIR, create_business_tables, migrate_room_category, migrate_todo_fields
 from backend.app.auth_database import AuthSessionLocal, initialize_auth_database
 from backend.app.models.models import Mouse, User, SystemSetting, Claimer, Room
-from backend.app.auth import init_default_admin
+from backend.app.auth import get_secret_key, init_default_admin
+from backend.app.spa import resolve_spa_file
 from backend.app.services.database_backup import DatabaseMaintenanceMiddleware
-from backend.app.services.importer import (
-    cleanup_synthetic_room_imports,
-    cleanup_invalid_genotype_mice,
-    import_local_excel_folder,
-    remove_inferred_parent_placeholders,
-)
+from backend.app.services.importer import import_local_excel_folder
 
 from backend.app.routers import (
     auth,
@@ -66,6 +62,7 @@ app.add_middleware(DatabaseMaintenanceMiddleware)
 # Startup event: ensure the default admin and auto-seed Excel data if empty
 @app.on_event("startup")
 def startup_event():
+    get_secret_key()
     auth_db = AuthSessionLocal()
     db = SessionLocal()
     try:
@@ -79,18 +76,6 @@ def startup_event():
                 res = import_local_excel_folder(db, excel_dir)
                 print(f"Auto-import finished: {res}")
 
-        removed_placeholders = remove_inferred_parent_placeholders(db)
-        if removed_placeholders:
-            print(f"Removed {removed_placeholders} inferred parent placeholder mouse records.")
-
-        synthetic_cleanup = cleanup_synthetic_room_imports(db)
-        if any(synthetic_cleanup.values()):
-            print(f"Cleaned synthetic historical room imports: {synthetic_cleanup}")
-
-        invalid_mice_cleanup = cleanup_invalid_genotype_mice(db)
-        if any(invalid_mice_cleanup.values()):
-            print(f"Cleaned invalid genotype mice: {invalid_mice_cleanup}")
-        
         # Merge case discrepancies for existing strains
         sync_and_normalize_all_strains(db)
         sync_mouse_statuses(db)
@@ -135,6 +120,7 @@ def health_check():
 
 # Mount frontend static distribution if built
 FRONTEND_DIST = os.path.join(BASE_DIR, "frontend", "dist")
+
 if os.path.exists(FRONTEND_DIST):
     app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIST, "assets")), name="assets")
 
@@ -142,8 +128,8 @@ if os.path.exists(FRONTEND_DIST):
     async def serve_spa(request: Request, full_path: str):
         if full_path.startswith("api/"):
             raise HTTPException(status_code=404, detail="API 接口未找到")
-        file_path = os.path.join(FRONTEND_DIST, full_path)
-        if os.path.exists(file_path) and os.path.isfile(file_path):
+        file_path = resolve_spa_file(FRONTEND_DIST, full_path)
+        if file_path is not None:
             if full_path.startswith("assets/"):
                 return FileResponse(
                     file_path,
