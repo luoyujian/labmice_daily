@@ -292,7 +292,7 @@
     </div>
 
     <!-- Submit Request Dialog (Anyone / Guests) -->
-    <el-dialog v-model="showSubmitDialog" title="提交转鼠需求申请" width="540px">
+    <el-dialog class="workflow-dialog" v-model="showSubmitDialog" title="提交转鼠需求申请" width="540px">
       <el-form :model="submitForm" :rules="submitRules" ref="submitFormRef" label-width="125px">
         <el-form-item label="需求者姓名" prop="demander" required>
           <el-select
@@ -385,7 +385,7 @@
     </el-dialog>
 
     <!-- Admin Process Request Dialog -->
-    <el-dialog v-model="showProcessDialog" :title="isCompletedStatus(currentReq?.status) ? '查看转鼠申请' : '审批与处理转鼠申请'" width="min(960px, 94vw)">
+    <el-dialog class="workflow-dialog" v-model="showProcessDialog" :title="isCompletedStatus(currentReq?.status) ? '查看转鼠申请' : '审批与处理转鼠申请'" width="min(960px, 94vw)">
       <el-form :model="processForm" label-width="125px">
         <div class="bg-gray-50 p-3 rounded-lg text-xs mb-4 text-gray-700">
           <div>需求者：<b>{{ currentReq?.demander }}</b> (申请品系: <b>{{ currentReq?.strain }}</b>)</div>
@@ -984,30 +984,34 @@ async function loadRoomOptions() {
   }
 }
 
+let candidateLoadVersion = 0
 async function loadCandidateMice() {
+  const loadVersion = ++candidateLoadVersion
   syncingCandidateSelection = true
   candidateMiceRaw.value = []
   if (!processForm.strain || !processForm.source_room) {
     await nextTick()
-    syncingCandidateSelection = false
+    if (loadVersion === candidateLoadVersion) {
+      syncingCandidateSelection = false
+      candidateLoading.value = false
+    }
     return
   }
 
   candidateLoading.value = true
   try {
     const params = {
-      page: 1,
-      page_size: 500,
       in_cage: true,
       room: processForm.source_room
     }
     if (!isAnyStrainRequest(processForm.strain)) params.strain = processForm.strain
     const [res, assigned] = await Promise.all([
-      miceApi.listMice(params),
+      miceApi.listAllMice(params),
       transferRequestsApi.getAssignedMice(currentReq.value.id)
     ])
+    if (loadVersion !== candidateLoadVersion) return
     const currentCodes = new Set(parseMouseCodes(processForm.mouse_codes))
-    const available = res.items.filter(mouse => {
+    const available = res.filter(mouse => {
       if (!mouse.cage_id || mouse.status === '出笼') return false
       const unavailable = ['已领用', '死亡'].includes(mouse.status)
       return (!mouse.owner_id && !mouse.owner_name && !unavailable) || currentCodes.has(mouse.mouse_code)
@@ -1015,10 +1019,12 @@ async function loadCandidateMice() {
     candidateMiceRaw.value = [...new Map([...available, ...assigned].map(mouse => [mouse.id, mouse])).values()]
     await syncCandidateSelectionFromCodes()
   } catch (e) {
-    ElMessage.error('加载候选小鼠失败')
+    if (loadVersion === candidateLoadVersion) ElMessage.error('加载候选小鼠失败，请重试')
   } finally {
-    candidateLoading.value = false
-    syncingCandidateSelection = false
+    if (loadVersion === candidateLoadVersion) {
+      candidateLoading.value = false
+      syncingCandidateSelection = false
+    }
   }
 }
 
